@@ -16,29 +16,25 @@
         // Import the necessary Firebase functions from the CDN
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        // NOTE: Removed `orderBy` as it can cause issues without a proper index
         import { getFirestore, doc, getDoc, addDoc, setDoc, updateDoc, onSnapshot, collection, query, where, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         // Global variables provided by the Canvas environment.
-        // We use a defensive check to ensure they exist.
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
-        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
-
-        // Initialize Firebase
-        let app;
-        if (Object.keys(firebaseConfig).length > 0) {
-            app = initializeApp(firebaseConfig);
-            window.firebase = {}; // Initialize window.firebase here
-        } else {
-            console.error("Firebase config is missing. Please check your environment.");
-            // You might want to handle this gracefully in the UI
-            showErrorMessage("Error: Firebase configuration is missing. The app cannot connect to the database.");
+        
+        let firebaseConfig = {};
+        try {
+            if (typeof __firebase_config !== 'undefined' && __firebase_config) {
+                firebaseConfig = JSON.parse(__firebase_config);
+            }
+        } catch (e) {
+            console.error("Error parsing Firebase config:", e);
         }
         
-        const db = app ? getFirestore(app) : null;
-        const auth = app ? getAuth(app) : null;
+        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
 
+        let app = null;
+        let db = null;
+        let auth = null;
         let userId = null;
         let isAuthReady = false;
         let isInitialLoadComplete = false;
@@ -47,49 +43,23 @@
         const showErrorMessage = (message) => {
             const errorBox = document.getElementById('error-message-box');
             const errorText = document.getElementById('error-message-text');
-            errorText.textContent = message;
-            errorBox.classList.remove('hidden');
+            if (errorBox && errorText) {
+                errorText.textContent = message;
+                errorBox.classList.remove('hidden');
+            }
         };
 
-        // Listen for authentication state changes
-        if (auth) {
-            onAuthStateChanged(auth, async (user) => {
-                if (user) {
-                    // User is signed in.
-                    userId = user.uid;
-                    isAuthReady = true;
-                    console.log("User signed in with UID:", userId);
-                    // Now that the user is authenticated, we can listen for whispers
-                    if (window.initApp) {
-                        window.initApp();
-                    }
-                } else {
-                    // User is signed out. Attempt to sign in anonymously.
-                    try {
-                        if (initialAuthToken) {
-                            // Use the provided custom auth token
-                            await signInWithCustomToken(auth, initialAuthToken);
-                        } else {
-                            // Sign in anonymously if no token is available
-                            await signInAnonymously(auth);
-                        }
-                    } catch (error) {
-                        console.error("Error during anonymous sign-in:", error);
-                        // Use the custom error message box instead of alert()
-                        showErrorMessage("Error: Failed to connect to Firebase. Please check your network connection and try again.");
-                    }
-                }
-            });
-        } else {
-            console.error("Firebase Auth is not available.");
-            showErrorMessage("Error: Firebase Auth is not available. Please check your environment.");
-        }
-
-        // Expose Firebase objects to the global scope for use in the main script block
-        if (window.firebase) {
+        // Initialize Firebase if the configuration is valid
+        if (firebaseConfig && firebaseConfig.projectId) {
+            app = initializeApp(firebaseConfig);
+            db = getFirestore(app);
+            auth = getAuth(app);
+            
+            // Expose Firebase objects to the global scope for use in the main script block
             window.firebase = {
                 db,
                 auth,
+                appId, // Added appId to the global firebase object
                 userId,
                 isAuthReady,
                 collection,
@@ -100,6 +70,33 @@
                 updateDoc,
                 serverTimestamp
             };
+
+            // Listen for authentication state changes
+            onAuthStateChanged(auth, async (user) => {
+                if (user) {
+                    userId = user.uid;
+                    isAuthReady = true;
+                    console.log("User signed in with UID:", userId);
+                    if (window.initApp) {
+                        window.initApp();
+                    }
+                } else {
+                    try {
+                        if (initialAuthToken) {
+                            await signInWithCustomToken(auth, initialAuthToken);
+                        } else {
+                            await signInAnonymously(auth);
+                        }
+                    } catch (error) {
+                        console.error("Error during anonymous sign-in:", error);
+                        showErrorMessage("Error: Failed to connect to Firebase. Please check your network connection and try again.");
+                    }
+                }
+            });
+        } else {
+            const errorMessage = "Error: Firebase 'projectId' is not provided in the configuration. The app cannot connect to the database.";
+            console.error(errorMessage);
+            window.addEventListener('load', () => showErrorMessage(errorMessage));
         }
 
         window.loadingState = {
@@ -257,12 +254,11 @@
 
         // Function to render all secrets to the page
         const renderSecrets = (secrets) => {
-            // Check if initial load is complete, and if not, hide loading state
             if (!window.loadingState.isInitialLoadComplete) {
                 loadingStateElement.classList.add('hidden');
                 window.loadingState.isInitialLoadComplete = true;
             }
-            secretsContainer.innerHTML = ''; // Clear existing secrets
+            secretsContainer.innerHTML = '';
             
             whisperCountElement.textContent = `✨ ${secrets.length} whispers shared so far`;
 
@@ -319,9 +315,9 @@
             }
         };
 
-        // Handle form submission for a new secret
         const handleConfess = async (e) => {
-            e.preventDefault(); // Prevent page refresh
+            e.preventDefault();
+            if (!window.firebase || !window.firebase.db) return showErrorMessage("Database connection failed. Please refresh the page.");
             
             const newSecretText = secretInput.value.trim();
             if (newSecretText === '') return;
@@ -333,9 +329,8 @@
             </div>`;
 
             try {
-                // Get a reference to the 'whispers' collection in Firestore
-                const whispersCollection = firebase.collection(firebase.db, 'artifacts', typeof __app_id !== 'undefined' ? __app_id : 'default-app-id', 'public', 'data', 'whispers');
-
+                // Use firebase.appId from the globally exposed object
+                const whispersCollection = firebase.collection(firebase.db, 'artifacts', firebase.appId, 'public', 'data', 'whispers');
                 const initialReactions = emotions.reduce((acc, emotion) => ({ ...acc, [emotion.label]: 0 }), {});
 
                 await firebase.addDoc(whispersCollection, {
@@ -344,22 +339,23 @@
                     timestamp: firebase.serverTimestamp(),
                 });
                 
-                secretInput.value = ''; // Clear the input field
+                secretInput.value = '';
                 charCounterElement.textContent = '0/500';
             } catch (error) {
                 console.error("Error adding document: ", error);
+                showErrorMessage("Failed to add whisper. Check your network or permissions.");
             } finally {
                 confessButton.disabled = false;
                 confessButton.innerHTML = `🤫 Confess Anonymously`;
             }
         };
 
-        // Handle a user clicking an emotion button
         const handleReaction = async (e) => {
+            if (!window.firebase || !window.firebase.db) return showErrorMessage("Database connection failed. Please refresh the page.");
+            
             const button = e.target.closest('[data-emotion-label]');
             if (!button) return;
             
-            // Correctly access the dataset property
             const emotionLabel = button.dataset.emotionLabel;
             const secretCard = button.closest('[data-secret-id]');
             const secretId = secretCard.dataset.secretId;
@@ -367,27 +363,25 @@
             if (!secretId) return;
 
             try {
-                // Get the document reference
-                const docRef = firebase.doc(firebase.db, 'artifacts', typeof __app_id !== 'undefined' ? __app_id : 'default-app-id', 'public', 'data', 'whispers', secretId);
-                
-                // Fetch the current document state
+                // Use firebase.appId from the globally exposed object
+                const docRef = firebase.doc(firebase.db, 'artifacts', firebase.appId, 'public', 'data', 'whispers', secretId);
                 const docSnap = await firebase.getDoc(docRef);
+                
                 if (docSnap.exists()) {
                     const data = docSnap.data();
                     const currentReactions = data.reactions || {};
                     const newReactionCount = (currentReactions[emotionLabel] || 0) + 1;
                     
-                    // Update the document with the new reaction count
                     await firebase.updateDoc(docRef, {
                         [`reactions.${emotionLabel}`]: newReactionCount
                     });
                 }
             } catch (error) {
                 console.error("Error updating document: ", error);
+                showErrorMessage("Failed to add reaction. Please try again.");
             }
         };
 
-        // This function runs once the Firebase authentication is ready.
         window.initApp = function() {
             if (!window.firebase || !window.firebase.db) {
                 console.error("Firebase is not available. Cannot initialize app.");
@@ -396,27 +390,23 @@
 
             console.log("Firebase is ready. Initializing app functionality.");
             
-            // Set a timeout to handle potential connection issues
             const loadingTimeout = setTimeout(() => {
                 if (!window.loadingState.isInitialLoadComplete) {
                     loadingStateElement.innerHTML = `<p class="text-center text-red-500 py-12">Connection timed out. Please check your network and try reloading the page.</p>`;
                 }
-            }, 10000); // 10 seconds
+            }, 10000);
 
-            // Get a reference to the 'whispers' collection in Firestore
-            const whispersCollection = firebase.collection(firebase.db, 'artifacts', typeof __app_id !== 'undefined' ? __app_id : 'default-app-id', 'public', 'data', 'whispers');
+            // Use firebase.appId from the globally exposed object
+            const whispersCollection = firebase.collection(firebase.db, 'artifacts', firebase.appId, 'public', 'data', 'whispers');
             
-            // Set up a real-time listener for the collection
             const unsubscribe = firebase.onSnapshot(whispersCollection, (snapshot) => {
                 console.log("onSnapshot fired! Number of documents:", snapshot.size);
-                // Clear the timeout once we get a snapshot
                 clearTimeout(loadingTimeout);
 
                 const secrets = [];
                 snapshot.forEach((doc) => {
                     const data = doc.data();
-                    // Ensure timestamp is a valid number, handling serverTimestamp() delay
-                    const timestamp = data.timestamp ? data.timestamp.toMillis() : Date.now(); 
+                    const timestamp = data.timestamp ? data.timestamp.toMillis() : Date.now();
                     secrets.push({
                         id: doc.id,
                         ...data,
@@ -424,16 +414,13 @@
                     });
                 });
 
-                // Sort the secrets by timestamp in descending order before rendering
                 secrets.sort((a, b) => b.timestamp - a.timestamp);
-                
                 renderSecrets(secrets);
             }, (error) => {
                 console.error("Error getting real-time updates: ", error);
                 loadingStateElement.innerHTML = `<p class="text-center text-red-500 py-12">Failed to load whispers. Error: ${error.message}</p>`;
             });
             
-            // Add event listeners once Firebase is ready
             confessForm.addEventListener('submit', handleConfess);
             secretsContainer.addEventListener('click', handleReaction);
             secretInput.addEventListener('input', (e) => {
@@ -441,9 +428,7 @@
             });
         };
 
-        // Initial setup for character counter
         window.addEventListener('load', () => {
-            // Check if Firebase is already initialized
             if (window.firebase && window.firebase.isAuthReady) {
                 window.initApp();
             }
