@@ -6,6 +6,10 @@
     <title>Whispers Online</title>
     <!-- Tailwind CSS CDN for styling -->
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts for Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
     <style>
         /* Custom animation for fading in new secrets */
         @keyframes fadeIn {
@@ -18,15 +22,19 @@
                 transform: translateY(0);
             }
         }
+        body {
+            font-family: 'Inter', sans-serif;
+        }
     </style>
 </head>
-<body class="bg-gradient-to-br from-yellow-200 via-pink-200 to-blue-200 text-gray-900 font-sans p-2 sm:p-4 flex flex-col items-center justify-center min-h-screen overflow-x-hidden">
+<body class="bg-gradient-to-br from-purple-100 via-pink-100 to-blue-100 text-gray-800 font-sans p-4 sm:p-8 flex flex-col items-center min-h-screen overflow-x-hidden">
 
     <!-- Main content container with responsive width and centered layout -->
-    <div class="w-full max-w-2xl mx-auto my-4 sm:my-8 p-4 sm:p-6 bg-white/80 backdrop-blur-sm rounded-2xl shadow-2xl border border-gray-300">
+    <div class="w-full max-w-3xl mx-auto my-4 sm:my-8 space-y-8">
+        
         <!-- Header Section -->
-        <div class="text-center mb-8">
-            <h1 class="text-5xl font-bold mb-2 bg-gradient-to-r from-pink-500 to-orange-500 bg-clip-text text-transparent drop-shadow-lg">
+        <div class="text-center p-6 bg-white/70 backdrop-blur-sm rounded-2xl shadow-xl border border-gray-200">
+            <h1 class="text-5xl font-extrabold mb-2 bg-gradient-to-r from-purple-500 to-pink-500 bg-clip-text text-transparent drop-shadow-lg">
                 Whispers Online
             </h1>
             <p class="text-gray-600 text-lg">Share your secret anonymously and see how others react.</p>
@@ -36,11 +44,11 @@
         </div>
 
         <!-- Confession Form -->
-        <form id="confess-form" class="mb-8">
+        <form id="confess-form" class="p-6 bg-white/70 backdrop-blur-sm rounded-2xl shadow-xl border border-gray-200">
             <div class="relative">
                 <textarea
                     id="secret-input"
-                    class="w-full p-4 rounded-xl border-2 border-gray-300 bg-white/50 backdrop-blur-sm text-base text-gray-900 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all duration-200 resize-none placeholder-gray-400"
+                    class="w-full p-4 rounded-xl border-2 border-gray-300 bg-white/50 backdrop-blur-sm text-base text-gray-900 focus:outline-none focus:ring-2 focus:ring-purple-400 focus:border-transparent transition-all duration-200 resize-none placeholder-gray-400"
                     placeholder="What's weighing on your heart? Share it anonymously..."
                     rows="4"
                     required
@@ -53,26 +61,27 @@
             <button
                 id="confess-button"
                 type="submit"
-                class="w-full mt-4 px-6 py-3 bg-gradient-to-r from-pink-500 to-orange-500 text-white font-semibold rounded-xl hover:from-pink-600 hover:to-orange-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-pink-500 transition-all duration-200 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed transform hover:scale-[1.02] active:scale-[0.98]"
+                class="w-full mt-4 px-6 py-3 bg-gradient-to-r from-purple-500 to-pink-500 text-white font-semibold rounded-xl hover:from-purple-600 hover:to-pink-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-all duration-200 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed transform hover:scale-[1.02] active:scale-[0.98]"
             >
                 🤫 Confess Anonymously
             </button>
         </form>
-
-        <!-- Donation Section -->
-        <div class="my-8 text-center">
-            <a href="https://www.paypal.com/paypalme/your-username" target="_blank" class="block w-full max-w-xs mx-auto rounded-xl overflow-hidden shadow-lg transition-all duration-300 transform hover:scale-105">
-                <img 
-                    src="https://raw.githubusercontent.com/Domus-negotii/anonymous-secrets/main/paypal-qr.png.png" 
-                    alt="PayPal QR Code for donations"
-                    class="w-full h-auto object-cover"
-                >
-            </a>
-            <p class="mt-4 text-sm text-gray-600">Scan to support this anonymous platform</p>
+        
+        <!-- Featured Whisper Section -->
+        <div class="p-6 bg-purple-50/70 backdrop-blur-sm rounded-2xl shadow-xl border border-purple-200">
+            <h2 class="text-2xl font-bold mb-4 text-purple-700">💫 Featured Whisper</h2>
+            <div class="p-4 bg-white/80 rounded-xl border border-purple-300 shadow-inner">
+                <p class="text-lg text-purple-900 italic">
+                    "This is an example of a featured whisper. It could be one with the most reactions or a recent one that is particularly moving."
+                </p>
+                <div class="text-right text-sm text-gray-500 mt-2">
+                    - A kind soul
+                </div>
+            </div>
         </div>
 
-        <!-- Confessions Section -->
-        <div class="mb-6">
+        <!-- Recent Whispers Section -->
+        <div>
             <h2 class="text-3xl font-bold mb-6 text-center bg-gradient-to-r from-gray-700 to-gray-900 bg-clip-text text-transparent drop-shadow-sm">
                 Recent Whispers
             </h2>
@@ -90,8 +99,33 @@
             </div>
         </div>
 
-        <!-- Footer -->
+        <!-- Rules and Guidelines Section -->
+        <div class="p-6 bg-white/70 backdrop-blur-sm rounded-2xl shadow-xl border border-gray-200">
+            <h2 class="text-2xl font-bold mb-4 text-gray-700">📜 Guidelines for a Safe Community</h2>
+            <ul class="list-disc list-inside space-y-2 text-gray-600">
+                <li>Be kind and empathetic in your reactions.</li>
+                <li>All whispers are anonymous. Please respect each other's privacy.</li>
+                <li>No hate speech, threats, or explicit content.</li>
+                <li>This is a safe space for honest sharing.</li>
+            </ul>
+        </div>
+        
+        <!-- Donation and Footer -->
         <div class="text-center text-sm text-gray-500 pt-6 border-t border-gray-300">
+            <div class="my-4">
+                <!--
+                  The PayPal link has been updated with your username 'arccanimo'.
+                  The QR code image is also the one you provided earlier.
+                -->
+                <a href="https://www.paypal.com/paypalme/arccanimo" target="_blank" class="inline-block w-full max-w-[200px] rounded-xl overflow-hidden shadow-lg transition-all duration-300 transform hover:scale-105">
+                    <img 
+                        src="https://raw.githubusercontent.com/Domus-negotii/anonymous-secrets/main/paypal-qr.png.png" 
+                        alt="PayPal QR Code for donations"
+                        class="w-full h-auto object-cover"
+                    >
+                </a>
+                <p class="mt-4 text-sm text-gray-600">Scan or click to support this anonymous platform</p>
+            </div>
             <p>💫 All whispers are anonymous and ephemeral</p>
             <p class="mt-1">Share your truth, find your peace</p>
         </div>
@@ -135,7 +169,7 @@
         const whisperCountElement = document.getElementById('whisper-count');
         const emptyStateElement = document.getElementById('empty-state');
         const charCounterElement = document.getElementById('char-counter');
-
+        
         // Function to format the timestamp
         const formatTime = (timestamp) => {
             const now = Date.now();
@@ -171,7 +205,7 @@
                           <button
                               type="button"
                               data-emotion-label="${emotion.label}"
-                              class="flex items-center px-3 py-2 rounded-full border border-gray-400 bg-white/80 backdrop-blur-sm text-sm font-medium hover:bg-gray-200 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-pink-500 shadow-sm hover:shadow-md transform hover:scale-105 active:scale-95"
+                              class="flex items-center px-3 py-2 rounded-full border border-gray-400 bg-white/80 backdrop-blur-sm text-sm font-medium hover:bg-gray-200 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 shadow-sm hover:shadow-md transform hover:scale-105 active:scale-95"
                               title="React with ${emotion.label}"
                           >
                               <span class="text-lg mr-2">${emotion.emoji}</span>
@@ -244,7 +278,8 @@
             const button = e.target.closest('[data-emotion-label]');
             if (!button) return;
 
-            const emotionLabel = button.dataset.emotion-label;
+            // Correctly access the dataset property
+            const emotionLabel = button.dataset.emotionLabel;
             const secretCard = button.closest('[data-secret-id]');
             const secretId = secretCard.dataset.secretId;
 
@@ -262,8 +297,12 @@
             renderSecrets();
         };
 
+        
         // Event Listeners
-        window.addEventListener('load', renderSecrets);
+        window.addEventListener('load', () => {
+            renderSecrets();
+        });
+        
         confessForm.addEventListener('submit', handleConfess);
         secretsContainer.addEventListener('click', handleReaction);
         secretInput.addEventListener('input', (e) => {
