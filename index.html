@@ -26,9 +26,18 @@
         const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
 
         // Initialize Firebase
-        const app = initializeApp(firebaseConfig);
-        const db = getFirestore(app);
-        const auth = getAuth(app);
+        let app;
+        if (Object.keys(firebaseConfig).length > 0) {
+            app = initializeApp(firebaseConfig);
+            window.firebase = {}; // Initialize window.firebase here
+        } else {
+            console.error("Firebase config is missing. Please check your environment.");
+            // You might want to handle this gracefully in the UI
+            showErrorMessage("Error: Firebase configuration is missing. The app cannot connect to the database.");
+        }
+        
+        const db = app ? getFirestore(app) : null;
+        const auth = app ? getAuth(app) : null;
 
         let userId = null;
         let isAuthReady = false;
@@ -43,48 +52,55 @@
         };
 
         // Listen for authentication state changes
-        onAuthStateChanged(auth, async (user) => {
-            if (user) {
-                // User is signed in.
-                userId = user.uid;
-                isAuthReady = true;
-                console.log("User signed in with UID:", userId);
-                // Now that the user is authenticated, we can listen for whispers
-                if (window.initApp) {
-                    window.initApp();
-                }
-            } else {
-                // User is signed out. Attempt to sign in anonymously.
-                try {
-                    if (initialAuthToken) {
-                        // Use the provided custom auth token
-                        await signInWithCustomToken(auth, initialAuthToken);
-                    } else {
-                        // Sign in anonymously if no token is available
-                        await signInAnonymously(auth);
+        if (auth) {
+            onAuthStateChanged(auth, async (user) => {
+                if (user) {
+                    // User is signed in.
+                    userId = user.uid;
+                    isAuthReady = true;
+                    console.log("User signed in with UID:", userId);
+                    // Now that the user is authenticated, we can listen for whispers
+                    if (window.initApp) {
+                        window.initApp();
                     }
-                } catch (error) {
-                    console.error("Error during anonymous sign-in:", error);
-                    // Use the custom error message box instead of alert()
-                    showErrorMessage("Error: Failed to connect to Firebase. Please check your network connection and try again.");
+                } else {
+                    // User is signed out. Attempt to sign in anonymously.
+                    try {
+                        if (initialAuthToken) {
+                            // Use the provided custom auth token
+                            await signInWithCustomToken(auth, initialAuthToken);
+                        } else {
+                            // Sign in anonymously if no token is available
+                            await signInAnonymously(auth);
+                        }
+                    } catch (error) {
+                        console.error("Error during anonymous sign-in:", error);
+                        // Use the custom error message box instead of alert()
+                        showErrorMessage("Error: Failed to connect to Firebase. Please check your network connection and try again.");
+                    }
                 }
-            }
-        });
-        
+            });
+        } else {
+            console.error("Firebase Auth is not available.");
+            showErrorMessage("Error: Firebase Auth is not available. Please check your environment.");
+        }
+
         // Expose Firebase objects to the global scope for use in the main script block
-        window.firebase = {
-            db,
-            auth,
-            userId,
-            isAuthReady,
-            collection,
-            doc,
-            getDoc,
-            addDoc,
-            onSnapshot,
-            updateDoc,
-            serverTimestamp
-        };
+        if (window.firebase) {
+            window.firebase = {
+                db,
+                auth,
+                userId,
+                isAuthReady,
+                collection,
+                doc,
+                getDoc,
+                addDoc,
+                onSnapshot,
+                updateDoc,
+                serverTimestamp
+            };
+        }
 
         window.loadingState = {
             isInitialLoadComplete,
@@ -373,6 +389,11 @@
 
         // This function runs once the Firebase authentication is ready.
         window.initApp = function() {
+            if (!window.firebase || !window.firebase.db) {
+                console.error("Firebase is not available. Cannot initialize app.");
+                return;
+            }
+
             console.log("Firebase is ready. Initializing app functionality.");
             
             // Set a timeout to handle potential connection issues
