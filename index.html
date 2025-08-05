@@ -16,7 +16,8 @@
         // Import the necessary Firebase functions from the CDN
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, getDoc, addDoc, setDoc, updateDoc, onSnapshot, collection, query, orderBy, where, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        // NOTE: Removed `orderBy` as it can cause issues without a proper index
+        import { getFirestore, doc, getDoc, addDoc, setDoc, updateDoc, onSnapshot, collection, query, where, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         // Global variables provided by the Canvas environment.
         // We use a defensive check to ensure they exist.
@@ -385,7 +386,8 @@
             const whispersCollection = firebase.collection(firebase.db, 'artifacts', typeof __app_id !== 'undefined' ? __app_id : 'default-app-id', 'public', 'data', 'whispers');
             
             // Set up a real-time listener for the collection
-            firebase.onSnapshot(whispersCollection, (snapshot) => {
+            const unsubscribe = firebase.onSnapshot(whispersCollection, (snapshot) => {
+                console.log("onSnapshot fired! Number of documents:", snapshot.size);
                 // Clear the timeout once we get a snapshot
                 clearTimeout(loadingTimeout);
 
@@ -407,7 +409,7 @@
                 renderSecrets(secrets);
             }, (error) => {
                 console.error("Error getting real-time updates: ", error);
-                loadingStateElement.innerHTML = `<p class="text-center text-red-500 py-12">Failed to load whispers.</p>`;
+                loadingStateElement.innerHTML = `<p class="text-center text-red-500 py-12">Failed to load whispers. Error: ${error.message}</p>`;
             });
             
             // Add event listeners once Firebase is ready
