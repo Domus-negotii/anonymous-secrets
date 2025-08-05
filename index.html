@@ -153,9 +153,15 @@
         const { initializeApp, getFirestore, doc, collection, addDoc, onSnapshot, updateDoc, getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } = window.firebase;
 
         // --- Firebase & App Initialization ---
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'anonymous-secrets-a3b1f';
         const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {
-            projectId: 'demo-project'
+            apiKey: "AIzaSyAl6kXQzo6OKrfH2K432PiZn3XHVUuvXmM",
+            authDomain: "anonymous-secrets-a3b1f.firebaseapp.com",
+            projectId: "anonymous-secrets-a3b1f",
+            storageBucket: "anonymous-secrets-a3b1f.firebasestorage.app",
+            messagingSenderId: "320394326713",
+            appId: "1:320394326713:web:425311fa2eb2c052312168",
+            measurementId: "G-J00TK2Q3FZ"
         };
 
         let db;
