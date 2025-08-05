@@ -10,6 +10,70 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+    
+    <!-- Firebase SDKs for a real-time database (Firestore) and authentication -->
+    <script type="module">
+        // Import the necessary Firebase functions from the CDN
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, getDoc, addDoc, setDoc, updateDoc, onSnapshot, collection, query, orderBy, where, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // Global variables provided by the Canvas environment.
+        // We use a defensive check to ensure they exist.
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
+        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+
+        // Initialize Firebase
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        const auth = getAuth(app);
+
+        let userId = null;
+        let isAuthReady = false;
+
+        // Listen for authentication state changes
+        onAuthStateChanged(auth, async (user) => {
+            if (user) {
+                // User is signed in.
+                userId = user.uid;
+                isAuthReady = true;
+                console.log("User signed in with UID:", userId);
+                // Now that the user is authenticated, we can listen for whispers
+                if (window.initApp) {
+                    window.initApp();
+                }
+            } else {
+                // User is signed out. Attempt to sign in anonymously.
+                try {
+                    if (initialAuthToken) {
+                        // Use the provided custom auth token
+                        await signInWithCustomToken(auth, initialAuthToken);
+                    } else {
+                        // Sign in anonymously if no token is available
+                        await signInAnonymously(auth);
+                    }
+                } catch (error) {
+                    console.error("Error during anonymous sign-in:", error);
+                }
+            }
+        });
+        
+        // Expose Firebase objects to the global scope for use in the main script block
+        window.firebase = {
+            db,
+            auth,
+            userId,
+            isAuthReady,
+            collection,
+            doc,
+            addDoc,
+            onSnapshot,
+            updateDoc,
+            serverTimestamp
+        };
+    </script>
+
     <style>
         /* Custom animation for fading in new secrets */
         @keyframes fadeIn {
@@ -39,7 +103,7 @@
             </h1>
             <p class="text-gray-600 text-lg">Share your secret anonymously and see how others react.</p>
             <div id="whisper-count" class="mt-2 text-sm text-gray-500">
-                ✨ 0 whispers shared so far
+                ✨ Loading whispers...
             </div>
         </div>
 
@@ -66,7 +130,7 @@
                 🤫 Confess Anonymously
             </button>
         </form>
-
+        
         <!-- Recent Whispers Section -->
         <div>
             <h2 class="text-3xl font-bold mb-6 text-center bg-gradient-to-r from-gray-700 to-gray-900 bg-clip-text text-transparent drop-shadow-sm">
@@ -75,7 +139,11 @@
             
             <!-- This is where the secrets will be injected by JavaScript -->
             <div id="secrets-container" class="space-y-6">
-                <!-- Initial secrets will be rendered here -->
+                <!-- A loading state while fetching data -->
+                <div class="text-center text-gray-500 py-12">
+                  <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-400 mx-auto"></div>
+                  <p class="mt-4">Loading whispers...</p>
+                </div>
             </div>
 
             <!-- Empty State -->
@@ -127,28 +195,7 @@
             { emoji: '🙏', label: 'Care' },
             { emoji: '😮', label: 'Surprise' },
         ];
-
-        let secrets = [
-            {
-                id: '1',
-                secret: "I still sleep with a stuffed animal and I'm 25 years old. It helps me feel safe and reminds me of simpler times.",
-                reactions: { Love: 15, Laugh: 3, Sad: 2, Care: 8, Surprise: 1 },
-                timestamp: Date.now() - 86400000 
-            },
-            {
-                id: '2',
-                secret: "I pretend to be busy at work but I actually finished all my tasks hours ago. I just don't want more work piled on me.",
-                reactions: { Love: 5, Laugh: 12, Sad: 1, Care: 3, Surprise: 7 },
-                timestamp: Date.now() - 43200000 
-            },
-            {
-                id: '3',
-                secret: "I've been learning my grandmother's native language in secret because I want to surprise her on her 90th birthday next month.",
-                reactions: { Love: 23, Laugh: 0, Sad: 0, Care: 18, Surprise: 4 },
-                timestamp: Date.now() - 21600000 
-            }
-        ];
-
+        
         const confessForm = document.getElementById('confess-form');
         const secretInput = document.getElementById('secret-input');
         const confessButton = document.getElementById('confess-button');
@@ -156,7 +203,7 @@
         const whisperCountElement = document.getElementById('whisper-count');
         const emptyStateElement = document.getElementById('empty-state');
         const charCounterElement = document.getElementById('char-counter');
-        
+
         // Function to format the timestamp
         const formatTime = (timestamp) => {
             const now = Date.now();
@@ -169,17 +216,16 @@
         };
 
         // Function to render all secrets to the page
-        const renderSecrets = () => {
+        const renderSecrets = (secrets) => {
             secretsContainer.innerHTML = ''; // Clear existing secrets
-            const sortedSecrets = [...secrets].sort((a, b) => b.timestamp - a.timestamp);
             
-            whisperCountElement.textContent = `✨ ${sortedSecrets.length} whispers shared so far`;
+            whisperCountElement.textContent = `✨ ${secrets.length} whispers shared so far`;
 
-            if (sortedSecrets.length === 0) {
+            if (secrets.length === 0) {
               emptyStateElement.style.display = 'block';
             } else {
               emptyStateElement.style.display = 'none';
-              sortedSecrets.forEach((secret, index) => {
+              secrets.forEach((secret, index) => {
                   const secretElement = document.createElement('div');
                   secretElement.className = "group p-6 bg-white/60 backdrop-blur-sm rounded-xl shadow-lg border border-gray-300 hover:shadow-xl transition-all duration-300 hover:scale-[1.01]";
                   secretElement.style.animationDelay = `${index * 0.1}s`;
@@ -229,7 +275,7 @@
         };
 
         // Handle form submission for a new secret
-        const handleConfess = (e) => {
+        const handleConfess = async (e) => {
             e.preventDefault(); // Prevent page refresh
             
             const newSecretText = secretInput.value.trim();
@@ -241,59 +287,106 @@
                 Sharing...
             </div>`;
 
-            // Simulate network delay
-            setTimeout(() => {
-                const newSecretObj = {
-                    id: Date.now().toString(),
+            try {
+                // Get a reference to the 'whispers' collection in Firestore
+                const whispersCollection = firebase.collection(firebase.db, 'artifacts', typeof __app_id !== 'undefined' ? __app_id : 'default-app-id', 'public', 'data', 'whispers');
+
+                const initialReactions = emotions.reduce((acc, emotion) => ({ ...acc, [emotion.label]: 0 }), {});
+
+                await firebase.addDoc(whispersCollection, {
                     secret: newSecretText,
-                    reactions: emotions.reduce((acc, emotion) => ({ ...acc, [emotion.label]: 0 }), {}),
-                    timestamp: Date.now(),
-                };
+                    reactions: initialReactions,
+                    timestamp: firebase.serverTimestamp(),
+                });
                 
-                secrets.unshift(newSecretObj); // Add to the beginning of the array
                 secretInput.value = ''; // Clear the input field
-                renderSecrets(); // Re-render the secrets list
-                
+                charCounterElement.textContent = '0/500';
+            } catch (error) {
+                console.error("Error adding document: ", error);
+            } finally {
                 confessButton.disabled = false;
                 confessButton.innerHTML = `🤫 Confess Anonymously`;
-                charCounterElement.textContent = '0/500';
-            }, 500);
+            }
         };
 
         // Handle a user clicking an emotion button
-        const handleReaction = (e) => {
+        const handleReaction = async (e) => {
             const button = e.target.closest('[data-emotion-label]');
             if (!button) return;
-
+            
             // Correctly access the dataset property
             const emotionLabel = button.dataset.emotionLabel;
             const secretCard = button.closest('[data-secret-id]');
             const secretId = secretCard.dataset.secretId;
+            
+            if (!secretId) return;
 
-            secrets = secrets.map(secret =>
-                secret.id === secretId
-                    ? {
-                        ...secret,
-                        reactions: {
-                            ...secret.reactions,
-                            [emotionLabel]: (secret.reactions[emotionLabel] || 0) + 1
-                        }
-                    }
-                    : secret
-            );
-            renderSecrets();
+            try {
+                // Get the document reference
+                const docRef = firebase.doc(firebase.db, 'artifacts', typeof __app_id !== 'undefined' ? __app_id : 'default-app-id', 'public', 'data', 'whispers', secretId);
+                
+                // Fetch the current document state
+                const docSnap = await firebase.getDoc(docRef);
+                if (docSnap.exists()) {
+                    const data = docSnap.data();
+                    const currentReactions = data.reactions || {};
+                    const newReactionCount = (currentReactions[emotionLabel] || 0) + 1;
+                    
+                    // Update the document with the new reaction count
+                    await firebase.updateDoc(docRef, {
+                        [`reactions.${emotionLabel}`]: newReactionCount
+                    });
+                }
+            } catch (error) {
+                console.error("Error updating document: ", error);
+            }
         };
 
-        
-        // Event Listeners
+        // This function runs once the Firebase authentication is ready.
+        window.initApp = function() {
+            console.log("Firebase is ready. Initializing app functionality.");
+            
+            // Get a reference to the 'whispers' collection in Firestore
+            const whispersCollection = firebase.collection(firebase.db, 'artifacts', typeof __app_id !== 'undefined' ? __app_id : 'default-app-id', 'public', 'data', 'whispers');
+            
+            // Set up a real-time listener for the collection
+            firebase.onSnapshot(whispersCollection, (snapshot) => {
+                const secrets = [];
+                snapshot.forEach((doc) => {
+                    const data = doc.data();
+                    // Ensure timestamp is a valid number, handling serverTimestamp() delay
+                    const timestamp = data.timestamp ? data.timestamp.toMillis() : Date.now(); 
+                    secrets.push({
+                        id: doc.id,
+                        ...data,
+                        timestamp: timestamp
+                    });
+                });
+
+                // Sort the secrets by timestamp in descending order before rendering
+                secrets.sort((a, b) => b.timestamp - a.timestamp);
+                
+                renderSecrets(secrets);
+            }, (error) => {
+                console.error("Error getting real-time updates: ", error);
+                secretsContainer.innerHTML = `<p class="text-center text-red-500 py-12">Failed to load whispers.</p>`;
+            });
+            
+            // Add event listeners once Firebase is ready
+            confessForm.addEventListener('submit', handleConfess);
+            secretsContainer.addEventListener('click', handleReaction);
+            secretInput.addEventListener('input', (e) => {
+              charCounterElement.textContent = `${e.target.value.length}/500`;
+            });
+        };
+
+        // Initial setup for character counter
         window.addEventListener('load', () => {
-            renderSecrets();
-        });
-        
-        confessForm.addEventListener('submit', handleConfess);
-        secretsContainer.addEventListener('click', handleReaction);
-        secretInput.addEventListener('input', (e) => {
-          charCounterElement.textContent = `${e.target.value.length}/500`;
+            // Check if Firebase is already initialized
+            if (window.firebase && window.firebase.isAuthReady) {
+                window.initApp();
+            }
+            charCounterElement.textContent = `${secretInput.value.length}/500`;
         });
     </script>
 </body>
