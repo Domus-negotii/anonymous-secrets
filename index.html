@@ -3,13 +3,24 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Whispers Online (Local)</title>
+    <title>Whispers Online</title>
     <!-- Tailwind CSS CDN for styling -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Google Fonts for Inter -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+    
+    <!-- Firebase SDKs -->
+    <script type="module">
+        // Import the functions you need from the Firebase SDKs
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getFirestore, doc, collection, addDoc, onSnapshot, updateDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        
+        // Expose Firebase and other variables to the global scope
+        window.firebase = { initializeApp, getFirestore, doc, collection, addDoc, onSnapshot, updateDoc, getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken };
+    </script>
 
     <style>
         /* Custom animation for fading in new secrets */
@@ -44,7 +55,7 @@
             <h1 class="text-5xl font-extrabold mb-2 bg-gradient-to-r from-purple-500 to-pink-500 bg-clip-text text-transparent drop-shadow-lg">
                 Whispers Online
             </h1>
-            <p class="text-gray-600 text-lg">Share your secret with yourself.</p>
+            <p class="text-gray-600 text-lg">Share your secret with the world.</p>
             <div id="whisper-count" class="mt-2 text-sm text-gray-500">
                 ✨ Loading whispers...
             </div>
@@ -85,7 +96,7 @@
                 <!-- A loading state while fetching data -->
                 <div id="loading-state" class="text-center text-gray-500 py-12">
                   <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-400 mx-auto"></div>
-                  <p class="mt-4">Loading whispers...</p>
+                  <p class="mt-4">Connecting to the cloud...</p>
                 </div>
 
                 <!-- This is the new container for the featured whisper -->
@@ -137,10 +148,56 @@
         </div>
     </div>
 
-    <script>
-        // Define the data and DOM elements
-        const STORAGE_KEY = 'whispers-local-storage';
+    <script type="module">
+        // Get Firebase modules from the global scope
+        const { initializeApp, getFirestore, doc, collection, addDoc, onSnapshot, updateDoc, getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } = window.firebase;
 
+        // --- Firebase & App Initialization ---
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {
+            projectId: 'demo-project'
+        };
+
+        let db;
+        let auth;
+        let userId;
+
+        // Initialize Firebase on window load
+        window.addEventListener('load', async () => {
+            try {
+                const app = initializeApp(firebaseConfig);
+                db = getFirestore(app);
+                auth = getAuth(app);
+                
+                await onAuthStateChanged(auth, async (user) => {
+                    if (user) {
+                        userId = user.uid;
+                    } else {
+                        try {
+                            if (typeof __initial_auth_token !== 'undefined') {
+                                await signInWithCustomToken(auth, __initial_auth_token);
+                                userId = auth.currentUser.uid;
+                            } else {
+                                await signInAnonymously(auth);
+                                userId = auth.currentUser.uid;
+                            }
+                        } catch (error) {
+                            console.error("Firebase Auth Error:", error);
+                            showErrorMessage("Error: Could not authenticate with Firebase. Please check your project settings.");
+                        }
+                    }
+                    if (db) {
+                        setupRealtimeListener();
+                    }
+                });
+
+            } catch (error) {
+                console.error("Firebase Init Error:", error);
+                showErrorMessage("Error: Firebase is not configured correctly. Please check your project's `projectId`.");
+            }
+        });
+
+        // --- DOM Elements and Configuration ---
         const emotions = [
             { emoji: '❤️', label: 'Love' },
             { emoji: '😂', label: 'Laugh' },
@@ -164,8 +221,7 @@
         const featuredWhisperContainer = document.getElementById('featured-whisper-container');
         const featuredWhisperCard = document.getElementById('featured-whisper-card');
 
-
-        // Function to show a custom error message
+        // --- Helper Functions ---
         const showErrorMessage = (message) => {
             if (errorBox && errorText) {
                 errorText.textContent = message;
@@ -173,53 +229,27 @@
             }
         };
 
-        // Function to format the timestamp
         const formatTime = (timestamp) => {
             const now = Date.now();
             const diff = now - timestamp;
-
             if (diff < 60000) return 'Just now';
             if (diff < 3600000) return `${Math.floor(diff / 60000)}m ago`;
             if (diff < 86400000) return `${Math.floor(diff / 3600000)}h ago`;
             return `${Math.floor(diff / 86400000)}d ago`;
         };
-
-        // Function to get whispers from local storage
-        const getWhispers = () => {
-            try {
-                const whispers = localStorage.getItem(STORAGE_KEY);
-                return whispers ? JSON.parse(whispers) : [];
-            } catch (e) {
-                console.error("Could not retrieve whispers from local storage.", e);
-                return [];
-            }
-        };
-
-        // Function to save whispers to local storage
-        const saveWhispers = (whispers) => {
-            try {
-                localStorage.setItem(STORAGE_KEY, JSON.stringify(whispers));
-            } catch (e) {
-                console.error("Could not save whispers to local storage.", e);
-                showErrorMessage("Error: Could not save your whisper. Your browser may have local storage disabled or full.");
-            }
-        };
         
-        // Helper function to calculate total reactions for a whisper
         const getTotalReactions = (secret) => {
             return Object.values(secret.reactions || {}).reduce((a, b) => a + b, 0);
         };
 
-        // Function to render the featured whisper
+        // --- Rendering Functions ---
         const renderFeaturedWhisper = (secret) => {
-            if (!secret) {
+            if (!secret || getTotalReactions(secret) === 0) {
                 featuredWhisperContainer.classList.add('hidden');
                 return;
             }
             
-            // Show the featured whisper container
             featuredWhisperContainer.classList.remove('hidden');
-            
             featuredWhisperCard.dataset.secretId = secret.id;
             
             let reactionButtonsHtml = emotions.map(emotion => {
@@ -261,10 +291,7 @@
             `;
         };
 
-        // Function to render all secrets to the page
-        const renderSecrets = () => {
-            const allSecrets = getWhispers();
-            
+        const renderSecrets = (allSecrets) => {
             if (loadingStateElement) {
                 loadingStateElement.classList.add('hidden');
             }
@@ -283,16 +310,13 @@
                 whisperCountElement.textContent = `✨ ${allSecrets.length} whispers shared so far`;
             }
 
-            // Find the featured whisper (the one with the most reactions)
             const sortedSecretsByReactions = [...allSecrets].sort((a, b) => getTotalReactions(b) - getTotalReactions(a));
             const featuredWhisper = sortedSecretsByReactions[0];
             
             renderFeaturedWhisper(featuredWhisper);
 
-            // Filter out the featured whisper from the main list
             const remainingSecrets = allSecrets.filter(secret => secret.id !== featuredWhisper.id);
-            
-            secretsContainer.innerHTML = ''; // Clear only the main secrets container
+            secretsContainer.innerHTML = '';
             
             remainingSecrets.sort((a, b) => b.timestamp - a.timestamp);
 
@@ -343,11 +367,28 @@
                 secretsContainer.appendChild(secretElement);
             });
         };
+        
+        // --- Firebase Realtime Listener ---
+        const setupRealtimeListener = () => {
+            const whispersCollectionRef = collection(db, `artifacts/${appId}/public/data/whispers`);
+            onSnapshot(whispersCollectionRef, (snapshot) => {
+                const allSecrets = snapshot.docs.map(doc => ({
+                    id: doc.id,
+                    ...doc.data(),
+                    timestamp: doc.data().timestamp.toDate().getTime()
+                }));
+                renderSecrets(allSecrets);
+            }, (error) => {
+                console.error("Error fetching whispers:", error);
+                showErrorMessage("Error: Could not retrieve whispers from the cloud. Please try again later.");
+            });
+        };
 
-        const handleConfess = (e) => {
+        // --- Event Handlers for UI Interactions ---
+        const handleConfess = async (e) => {
             e.preventDefault();
             const newSecretText = secretInput.value.trim();
-            if (newSecretText === '') return;
+            if (newSecretText === '' || !db) return;
 
             confessButton.disabled = true;
             confessButton.innerHTML = `<div class="flex items-center justify-center">
@@ -355,61 +396,55 @@
                 Sharing...
             </div>`;
 
-            const secrets = getWhispers();
-            const initialReactions = emotions.reduce((acc, emotion) => ({ ...acc, [emotion.label]: 0 }), {});
-            const newId = Date.now().toString() + Math.random().toString(36).substr(2, 9);
-
-            secrets.push({
-                id: newId,
-                secret: newSecretText,
-                reactions: initialReactions,
-                timestamp: Date.now(),
-            });
-
-            saveWhispers(secrets);
-            renderSecrets();
-
-            secretInput.value = '';
-            charCounterElement.textContent = '0/500';
-            confessButton.disabled = false;
-            confessButton.innerHTML = `🤫 Confess Anonymously`;
+            try {
+                const whispersCollectionRef = collection(db, `artifacts/${appId}/public/data/whispers`);
+                await addDoc(whispersCollectionRef, {
+                    secret: newSecretText,
+                    reactions: emotions.reduce((acc, emotion) => ({ ...acc, [emotion.label]: 0 }), {}),
+                    timestamp: new Date(),
+                });
+            } catch (error) {
+                console.error("Error adding whisper:", error);
+                showErrorMessage("Error: Could not share your whisper. Please check your Firebase connection.");
+            } finally {
+                secretInput.value = '';
+                charCounterElement.textContent = '0/500';
+                confessButton.disabled = false;
+                confessButton.innerHTML = `🤫 Confess Anonymously`;
+            }
         };
 
-        const handleReaction = (e) => {
+        const handleReaction = async (e) => {
             const button = e.target.closest('[data-emotion-label]');
-            if (!button) return;
+            if (!button || !db) return;
 
-            const emotionLabel = button.dataset.emotionLabel;
+            const emotionLabel = button.dataset.emotion-label;
             const secretCard = button.closest('[data-secret-id]');
-            const secretId = secretCard.dataset.secretId;
+            const secretId = secretCard.dataset.secret-id;
 
             if (!secretId) return;
-
-            const secrets = getWhispers();
-            const updatedSecrets = secrets.map(secret => {
-                if (secret.id === secretId) {
-                    const newReactions = { ...secret.reactions };
-                    newReactions[emotionLabel] = (newReactions[emotionLabel] || 0) + 1;
-                    return { ...secret, reactions: newReactions };
-                }
-                return secret;
-            });
-
-            saveWhispers(updatedSecrets);
-            renderSecrets();
+            
+            try {
+                const whisperRef = doc(db, `artifacts/${appId}/public/data/whispers`, secretId);
+                const currentCount = parseInt(button.querySelector('span:last-child').textContent) || 0;
+                await updateDoc(whisperRef, {
+                    [`reactions.${emotionLabel}`]: currentCount + 1
+                });
+            } catch (error) {
+                console.error("Error updating reaction:", error);
+                showErrorMessage("Error: Could not add your reaction. Please check your Firebase connection.");
+            }
         };
 
-        window.addEventListener('load', () => {
-            renderSecrets();
-            if (confessForm) confessForm.addEventListener('submit', handleConfess);
-            if (secretsContainer) secretsContainer.addEventListener('click', handleReaction);
-            if (secretInput) {
-                secretInput.addEventListener('input', (e) => {
-                    charCounterElement.textContent = `${e.target.value.length}/500`;
-                });
-                charCounterElement.textContent = `${secretInput.value.length}/500`;
-            }
-        });
+        // --- Event Listeners ---
+        if (confessForm) confessForm.addEventListener('submit', handleConfess);
+        if (secretsContainer) secretsContainer.addEventListener('click', handleReaction);
+        if (secretInput) {
+            secretInput.addEventListener('input', (e) => {
+                charCounterElement.textContent = `${e.target.value.length}/500`;
+            });
+            charCounterElement.textContent = `${secretInput.value.length}/500`;
+        }
     </script>
 </body>
 </html>
