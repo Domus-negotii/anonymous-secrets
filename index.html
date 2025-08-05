@@ -32,6 +32,14 @@
         let userId = null;
         let isAuthReady = false;
 
+        // A function to show a custom error message
+        const showErrorMessage = (message) => {
+            const errorBox = document.getElementById('error-message-box');
+            const errorText = document.getElementById('error-message-text');
+            errorText.textContent = message;
+            errorBox.classList.remove('hidden');
+        };
+
         // Listen for authentication state changes
         onAuthStateChanged(auth, async (user) => {
             if (user) {
@@ -55,7 +63,8 @@
                     }
                 } catch (error) {
                     console.error("Error during anonymous sign-in:", error);
-                    alert("Error: Failed to connect to Firebase. Please check your network connection and try again.");
+                    // Use the custom error message box instead of alert()
+                    showErrorMessage("Error: Failed to connect to Firebase. Please check your network connection and try again.");
                 }
             }
         });
@@ -68,7 +77,7 @@
             isAuthReady,
             collection,
             doc,
-            getDoc, // Added getDoc to the window.firebase object
+            getDoc,
             addDoc,
             onSnapshot,
             updateDoc,
@@ -94,6 +103,12 @@
     </style>
 </head>
 <body class="bg-gradient-to-br from-purple-100 via-pink-100 to-blue-100 text-gray-800 font-sans p-4 sm:p-8 flex flex-col items-center min-h-screen overflow-x-hidden">
+
+    <!-- Custom Error Message Box -->
+    <div id="error-message-box" class="hidden fixed top-4 left-1/2 -translate-x-1/2 z-50 p-4 bg-red-500 text-white rounded-lg shadow-xl max-w-sm w-full text-center">
+        <p id="error-message-text" class="font-semibold"></p>
+        <button onclick="document.getElementById('error-message-box').classList.add('hidden')" class="mt-2 text-sm underline opacity-80 hover:opacity-100">Dismiss</button>
+    </div>
 
     <!-- Main content container with responsive width and centered layout -->
     <div class="w-full max-w-3xl mx-auto my-4 sm:my-8 space-y-8">
@@ -192,7 +207,7 @@
         // Define the data and DOM elements
         const emotions = [
             { emoji: '❤️', label: 'Love' },
-            { emoji: '�', label: 'Laugh' },
+            { emoji: '😂', label: 'Laugh' },
             { emoji: '😢', label: 'Sad' },
             { emoji: '🙏', label: 'Care' },
             { emoji: '😮', label: 'Surprise' },
@@ -317,9 +332,9 @@
             if (!button) return;
             
             // Correctly access the dataset property
-            const emotionLabel = button.dataset.emotionLabel;
+            const emotionLabel = button.dataset.emotion-label;
             const secretCard = button.closest('[data-secret-id]');
-            const secretId = secretCard.dataset.secretId;
+            const secretId = secretCard.dataset.secret-id;
             
             if (!secretId) return;
 
@@ -393,4 +408,3 @@
     </script>
 </body>
 </html>
-�
