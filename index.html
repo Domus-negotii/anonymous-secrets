@@ -31,6 +31,7 @@
 
         let userId = null;
         let isAuthReady = false;
+        let isInitialLoadComplete = false;
 
         // A function to show a custom error message
         const showErrorMessage = (message) => {
@@ -82,6 +83,10 @@
             onSnapshot,
             updateDoc,
             serverTimestamp
+        };
+
+        window.loadingState = {
+            isInitialLoadComplete,
         };
     </script>
 
@@ -157,7 +162,7 @@
             <!-- This is where the secrets will be injected by JavaScript -->
             <div id="secrets-container" class="space-y-6">
                 <!-- A loading state while fetching data -->
-                <div class="text-center text-gray-500 py-12">
+                <div id="loading-state" class="text-center text-gray-500 py-12">
                   <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-400 mx-auto"></div>
                   <p class="mt-4">Loading whispers...</p>
                 </div>
@@ -219,6 +224,7 @@
         const secretsContainer = document.getElementById('secrets-container');
         const whisperCountElement = document.getElementById('whisper-count');
         const emptyStateElement = document.getElementById('empty-state');
+        const loadingStateElement = document.getElementById('loading-state');
         const charCounterElement = document.getElementById('char-counter');
 
         // Function to format the timestamp
@@ -234,14 +240,19 @@
 
         // Function to render all secrets to the page
         const renderSecrets = (secrets) => {
+            // Check if initial load is complete, and if not, hide loading state
+            if (!window.loadingState.isInitialLoadComplete) {
+                loadingStateElement.classList.add('hidden');
+                window.loadingState.isInitialLoadComplete = true;
+            }
             secretsContainer.innerHTML = ''; // Clear existing secrets
             
             whisperCountElement.textContent = `✨ ${secrets.length} whispers shared so far`;
 
             if (secrets.length === 0) {
-              emptyStateElement.style.display = 'block';
+              emptyStateElement.classList.remove('hidden');
             } else {
-              emptyStateElement.style.display = 'none';
+              emptyStateElement.classList.add('hidden');
               secrets.forEach((secret, index) => {
                   const secretElement = document.createElement('div');
                   secretElement.className = "group p-6 bg-white/60 backdrop-blur-sm rounded-xl shadow-lg border border-gray-300 hover:shadow-xl transition-all duration-300 hover:scale-[1.01]";
@@ -363,11 +374,21 @@
         window.initApp = function() {
             console.log("Firebase is ready. Initializing app functionality.");
             
+            // Set a timeout to handle potential connection issues
+            const loadingTimeout = setTimeout(() => {
+                if (!window.loadingState.isInitialLoadComplete) {
+                    loadingStateElement.innerHTML = `<p class="text-center text-red-500 py-12">Connection timed out. Please check your network and try reloading the page.</p>`;
+                }
+            }, 10000); // 10 seconds
+
             // Get a reference to the 'whispers' collection in Firestore
             const whispersCollection = firebase.collection(firebase.db, 'artifacts', typeof __app_id !== 'undefined' ? __app_id : 'default-app-id', 'public', 'data', 'whispers');
             
             // Set up a real-time listener for the collection
             firebase.onSnapshot(whispersCollection, (snapshot) => {
+                // Clear the timeout once we get a snapshot
+                clearTimeout(loadingTimeout);
+
                 const secrets = [];
                 snapshot.forEach((doc) => {
                     const data = doc.data();
@@ -386,7 +407,7 @@
                 renderSecrets(secrets);
             }, (error) => {
                 console.error("Error getting real-time updates: ", error);
-                secretsContainer.innerHTML = `<p class="text-center text-red-500 py-12">Failed to load whispers.</p>`;
+                loadingStateElement.innerHTML = `<p class="text-center text-red-500 py-12">Failed to load whispers.</p>`;
             });
             
             // Add event listeners once Firebase is ready
