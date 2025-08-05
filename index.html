@@ -55,6 +55,7 @@
                     }
                 } catch (error) {
                     console.error("Error during anonymous sign-in:", error);
+                    alert("Error: Failed to connect to Firebase. Please check your network connection and try again.");
                 }
             }
         });
@@ -191,7 +192,7 @@
         // Define the data and DOM elements
         const emotions = [
             { emoji: '❤️', label: 'Love' },
-            { emoji: '😂', label: 'Laugh' },
+            { emoji: '�', label: 'Laugh' },
             { emoji: '😢', label: 'Sad' },
             { emoji: '🙏', label: 'Care' },
             { emoji: '😮', label: 'Surprise' },
@@ -392,3 +393,4 @@
     </script>
 </body>
 </html>
+�
