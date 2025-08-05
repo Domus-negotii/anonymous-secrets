@@ -3,106 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Whispers Online</title>
+    <title>Whispers Online (Local)</title>
     <!-- Tailwind CSS CDN for styling -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Google Fonts for Inter -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
-    
-    <!-- Firebase SDKs for a real-time database (Firestore) and authentication -->
-    <script type="module">
-        // Import the necessary Firebase functions from the CDN
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, getDoc, addDoc, setDoc, updateDoc, onSnapshot, collection, query, where, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-
-        // Global variables provided by the Canvas environment.
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-        
-        let firebaseConfig = {};
-        try {
-            if (typeof __firebase_config !== 'undefined' && __firebase_config) {
-                firebaseConfig = JSON.parse(__firebase_config);
-            }
-        } catch (e) {
-            console.error("Error parsing Firebase config:", e);
-        }
-        
-        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
-
-        let app = null;
-        let db = null;
-        let auth = null;
-        let userId = null;
-        let isAuthReady = false;
-        let isInitialLoadComplete = false;
-
-        // A function to show a custom error message
-        const showErrorMessage = (message) => {
-            const errorBox = document.getElementById('error-message-box');
-            const errorText = document.getElementById('error-message-text');
-            if (errorBox && errorText) {
-                errorText.textContent = message;
-                errorBox.classList.remove('hidden');
-            }
-        };
-
-        // Initialize Firebase if the configuration is valid
-        if (firebaseConfig && firebaseConfig.projectId) {
-            app = initializeApp(firebaseConfig);
-            db = getFirestore(app);
-            auth = getAuth(app);
-            
-            // Expose Firebase objects to the global scope for use in the main script block
-            window.firebase = {
-                db,
-                auth,
-                appId,
-                userId,
-                isAuthReady,
-                collection,
-                doc,
-                getDoc,
-                addDoc,
-                onSnapshot,
-                updateDoc,
-                serverTimestamp
-            };
-
-            // Listen for authentication state changes
-            onAuthStateChanged(auth, async (user) => {
-                if (user) {
-                    userId = user.uid;
-                    isAuthReady = true;
-                    console.log("User signed in with UID:", userId);
-                    if (window.initApp) {
-                        window.initApp();
-                    }
-                } else {
-                    try {
-                        if (initialAuthToken) {
-                            await signInWithCustomToken(auth, initialAuthToken);
-                        } else {
-                            await signInAnonymously(auth);
-                        }
-                    } catch (error) {
-                        console.error("Error during anonymous sign-in:", error);
-                        showErrorMessage("Error: Failed to connect to Firebase. Please check your network connection and try again.");
-                    }
-                }
-            });
-        } else {
-            const errorMessage = "Error: Firebase 'projectId' is not provided in the configuration. The app cannot connect to the database.";
-            console.error(errorMessage);
-            window.addEventListener('load', () => showErrorMessage(errorMessage));
-        }
-
-        window.loadingState = {
-            isInitialLoadComplete,
-        };
-    </script>
 
     <style>
         /* Custom animation for fading in new secrets */
@@ -123,7 +30,7 @@
 </head>
 <body class="bg-gradient-to-br from-purple-100 via-pink-100 to-blue-100 text-gray-800 font-sans p-4 sm:p-8 flex flex-col items-center min-h-screen overflow-x-hidden">
 
-    <!-- Custom Error Message Box -->
+    <!-- Custom Error Message Box (now for generic errors) -->
     <div id="error-message-box" class="hidden fixed top-4 left-1/2 -translate-x-1/2 z-50 p-4 bg-red-500 text-white rounded-lg shadow-xl max-w-sm w-full text-center">
         <p id="error-message-text" class="font-semibold"></p>
         <button onclick="document.getElementById('error-message-box').classList.add('hidden')" class="mt-2 text-sm underline opacity-80 hover:opacity-100">Dismiss</button>
@@ -131,13 +38,13 @@
 
     <!-- Main content container with responsive width and centered layout -->
     <div class="w-full max-w-3xl mx-auto my-4 sm:my-8 space-y-8">
-        
+
         <!-- Header Section -->
         <div class="text-center p-6 bg-white/70 backdrop-blur-sm rounded-2xl shadow-xl border border-gray-200">
             <h1 class="text-5xl font-extrabold mb-2 bg-gradient-to-r from-purple-500 to-pink-500 bg-clip-text text-transparent drop-shadow-lg">
                 Whispers Online
             </h1>
-            <p class="text-gray-600 text-lg">Share your secret anonymously and see how others react.</p>
+            <p class="text-gray-600 text-lg">Share your secret with yourself.</p>
             <div id="whisper-count" class="mt-2 text-sm text-gray-500">
                 ✨ Loading whispers...
             </div>
@@ -166,13 +73,13 @@
                 🤫 Confess Anonymously
             </button>
         </form>
-        
+
         <!-- Recent Whispers Section -->
         <div>
             <h2 class="text-3xl font-bold mb-6 text-center bg-gradient-to-r from-gray-700 to-gray-900 bg-clip-text text-transparent drop-shadow-sm">
                 Recent Whispers
             </h2>
-            
+
             <!-- This is where the secrets will be injected by JavaScript -->
             <div id="secrets-container" class="space-y-6">
                 <!-- A loading state while fetching data -->
@@ -200,7 +107,7 @@
                 <li>This is a safe space for honest sharing.</li>
             </ul>
         </div>
-        
+
         <!-- Donation and Footer -->
         <div class="text-center text-sm text-gray-500 pt-6 border-t border-gray-300">
             <div class="my-4">
@@ -209,8 +116,8 @@
                   The QR code image is also the one you provided earlier.
                 -->
                 <a href="https://www.paypal.com/paypalme/arccanimo" target="_blank" class="inline-block w-full max-w-[200px] rounded-xl overflow-hidden shadow-lg transition-all duration-300 transform hover:scale-105">
-                    <img 
-                        src="https://raw.githubusercontent.com/Domus-negotii/anonymous-secrets/main/paypal-qr.png.png" 
+                    <img
+                        src="https://raw.githubusercontent.com/Domus-negotii/anonymous-secrets/main/paypal-qr.png.png"
                         alt="PayPal QR Code for donations"
                         class="w-full h-auto object-cover"
                     >
@@ -224,6 +131,8 @@
 
     <script>
         // Define the data and DOM elements
+        const STORAGE_KEY = 'whispers-local-storage';
+
         const emotions = [
             { emoji: '❤️', label: 'Love' },
             { emoji: '😂', label: 'Laugh' },
@@ -231,7 +140,7 @@
             { emoji: '🙏', label: 'Care' },
             { emoji: '😮', label: 'Surprise' },
         ];
-        
+
         const confessForm = document.getElementById('confess-form');
         const secretInput = document.getElementById('secret-input');
         const confessButton = document.getElementById('confess-button');
@@ -240,32 +149,70 @@
         const emptyStateElement = document.getElementById('empty-state');
         const loadingStateElement = document.getElementById('loading-state');
         const charCounterElement = document.getElementById('char-counter');
+        const errorBox = document.getElementById('error-message-box');
+        const errorText = document.getElementById('error-message-text');
+
+        // Function to show a custom error message
+        const showErrorMessage = (message) => {
+            if (errorBox && errorText) {
+                errorText.textContent = message;
+                errorBox.classList.remove('hidden');
+            }
+        };
 
         // Function to format the timestamp
         const formatTime = (timestamp) => {
             const now = Date.now();
             const diff = now - timestamp;
-            
+
             if (diff < 60000) return 'Just now';
             if (diff < 3600000) return `${Math.floor(diff / 60000)}m ago`;
             if (diff < 86400000) return `${Math.floor(diff / 3600000)}h ago`;
             return `${Math.floor(diff / 86400000)}d ago`;
         };
 
+        // Function to get whispers from local storage
+        const getWhispers = () => {
+            try {
+                const whispers = localStorage.getItem(STORAGE_KEY);
+                return whispers ? JSON.parse(whispers) : [];
+            } catch (e) {
+                console.error("Could not retrieve whispers from local storage.", e);
+                return [];
+            }
+        };
+
+        // Function to save whispers to local storage
+        const saveWhispers = (whispers) => {
+            try {
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(whispers));
+            } catch (e) {
+                console.error("Could not save whispers to local storage.", e);
+                showErrorMessage("Error: Could not save your whisper. Your browser may have local storage disabled or full.");
+            }
+        };
+
         // Function to render all secrets to the page
-        const renderSecrets = (secrets) => {
-            if (!window.loadingState.isInitialLoadComplete) {
+        const renderSecrets = () => {
+            const secrets = getWhispers();
+
+            if (loadingStateElement) {
                 loadingStateElement.classList.add('hidden');
-                window.loadingState.isInitialLoadComplete = true;
             }
             secretsContainer.innerHTML = '';
-            
-            whisperCountElement.textContent = `✨ ${secrets.length} whispers shared so far`;
+
+            if (whisperCountElement) {
+                whisperCountElement.textContent = `✨ ${secrets.length} whispers shared so far`;
+            }
+
 
             if (secrets.length === 0) {
-              emptyStateElement.classList.remove('hidden');
+              if (emptyStateElement) emptyStateElement.classList.remove('hidden');
             } else {
-              emptyStateElement.classList.add('hidden');
+              if (emptyStateElement) emptyStateElement.classList.add('hidden');
+
+              secrets.sort((a, b) => b.timestamp - a.timestamp);
+
               secrets.forEach((secret, index) => {
                   const secretElement = document.createElement('div');
                   secretElement.className = "group p-6 bg-white/60 backdrop-blur-sm rounded-xl shadow-lg border border-gray-300 hover:shadow-xl transition-all duration-300 hover:scale-[1.01]";
@@ -315,10 +262,8 @@
             }
         };
 
-        const handleConfess = async (e) => {
+        const handleConfess = (e) => {
             e.preventDefault();
-            if (!window.firebase || !window.firebase.db) return showErrorMessage("Database connection failed. Please refresh the page.");
-            
             const newSecretText = secretInput.value.trim();
             if (newSecretText === '') return;
 
@@ -328,111 +273,60 @@
                 Sharing...
             </div>`;
 
-            try {
-                // Use firebase.appId from the globally exposed object
-                const whispersCollection = firebase.collection(firebase.db, 'artifacts', firebase.appId, 'public', 'data', 'whispers');
-                const initialReactions = emotions.reduce((acc, emotion) => ({ ...acc, [emotion.label]: 0 }), {});
+            const secrets = getWhispers();
+            const initialReactions = emotions.reduce((acc, emotion) => ({ ...acc, [emotion.label]: 0 }), {});
+            const newId = Date.now().toString() + Math.random().toString(36).substr(2, 9);
 
-                await firebase.addDoc(whispersCollection, {
-                    secret: newSecretText,
-                    reactions: initialReactions,
-                    timestamp: firebase.serverTimestamp(),
-                });
-                
-                secretInput.value = '';
-                charCounterElement.textContent = '0/500';
-            } catch (error) {
-                console.error("Error adding document: ", error);
-                showErrorMessage("Failed to add whisper. Check your network or permissions.");
-            } finally {
-                confessButton.disabled = false;
-                confessButton.innerHTML = `🤫 Confess Anonymously`;
-            }
+            secrets.push({
+                id: newId,
+                secret: newSecretText,
+                reactions: initialReactions,
+                timestamp: Date.now(),
+            });
+
+            saveWhispers(secrets);
+            renderSecrets();
+
+            secretInput.value = '';
+            charCounterElement.textContent = '0/500';
+            confessButton.disabled = false;
+            confessButton.innerHTML = `🤫 Confess Anonymously`;
         };
 
-        const handleReaction = async (e) => {
-            if (!window.firebase || !window.firebase.db) return showErrorMessage("Database connection failed. Please refresh the page.");
-            
+        const handleReaction = (e) => {
             const button = e.target.closest('[data-emotion-label]');
             if (!button) return;
-            
+
             const emotionLabel = button.dataset.emotionLabel;
             const secretCard = button.closest('[data-secret-id]');
             const secretId = secretCard.dataset.secretId;
-            
+
             if (!secretId) return;
 
-            try {
-                // Use firebase.appId from the globally exposed object
-                const docRef = firebase.doc(firebase.db, 'artifacts', firebase.appId, 'public', 'data', 'whispers', secretId);
-                const docSnap = await firebase.getDoc(docRef);
-                
-                if (docSnap.exists()) {
-                    const data = docSnap.data();
-                    const currentReactions = data.reactions || {};
-                    const newReactionCount = (currentReactions[emotionLabel] || 0) + 1;
-                    
-                    await firebase.updateDoc(docRef, {
-                        [`reactions.${emotionLabel}`]: newReactionCount
-                    });
+            const secrets = getWhispers();
+            const updatedSecrets = secrets.map(secret => {
+                if (secret.id === secretId) {
+                    const newReactions = { ...secret.reactions };
+                    newReactions[emotionLabel] = (newReactions[emotionLabel] || 0) + 1;
+                    return { ...secret, reactions: newReactions };
                 }
-            } catch (error) {
-                console.error("Error updating document: ", error);
-                showErrorMessage("Failed to add reaction. Please try again.");
-            }
-        };
-
-        window.initApp = function() {
-            if (!window.firebase || !window.firebase.db) {
-                console.error("Firebase is not available. Cannot initialize app.");
-                return;
-            }
-
-            console.log("Firebase is ready. Initializing app functionality.");
-            
-            const loadingTimeout = setTimeout(() => {
-                if (!window.loadingState.isInitialLoadComplete) {
-                    loadingStateElement.innerHTML = `<p class="text-center text-red-500 py-12">Connection timed out. Please check your network and try reloading the page.</p>`;
-                }
-            }, 10000);
-
-            // Use firebase.appId from the globally exposed object
-            const whispersCollection = firebase.collection(firebase.db, 'artifacts', firebase.appId, 'public', 'data', 'whispers');
-            
-            const unsubscribe = firebase.onSnapshot(whispersCollection, (snapshot) => {
-                console.log("onSnapshot fired! Number of documents:", snapshot.size);
-                clearTimeout(loadingTimeout);
-
-                const secrets = [];
-                snapshot.forEach((doc) => {
-                    const data = doc.data();
-                    const timestamp = data.timestamp ? data.timestamp.toMillis() : Date.now();
-                    secrets.push({
-                        id: doc.id,
-                        ...data,
-                        timestamp: timestamp
-                    });
-                });
-
-                secrets.sort((a, b) => b.timestamp - a.timestamp);
-                renderSecrets(secrets);
-            }, (error) => {
-                console.error("Error getting real-time updates: ", error);
-                loadingStateElement.innerHTML = `<p class="text-center text-red-500 py-12">Failed to load whispers. Error: ${error.message}</p>`;
+                return secret;
             });
-            
-            confessForm.addEventListener('submit', handleConfess);
-            secretsContainer.addEventListener('click', handleReaction);
-            secretInput.addEventListener('input', (e) => {
-              charCounterElement.textContent = `${e.target.value.length}/500`;
-            });
+
+            saveWhispers(updatedSecrets);
+            renderSecrets();
         };
 
         window.addEventListener('load', () => {
-            if (window.firebase && window.firebase.isAuthReady) {
-                window.initApp();
+            renderSecrets();
+            if (confessForm) confessForm.addEventListener('submit', handleConfess);
+            if (secretsContainer) secretsContainer.addEventListener('click', handleReaction);
+            if (secretInput) {
+                secretInput.addEventListener('input', (e) => {
+                    charCounterElement.textContent = `${e.target.value.length}/500`;
+                });
+                charCounterElement.textContent = `${secretInput.value.length}/500`;
             }
-            charCounterElement.textContent = `${secretInput.value.length}/500`;
         });
     </script>
 </body>
