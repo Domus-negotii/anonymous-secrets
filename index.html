@@ -332,9 +332,9 @@
             if (!button) return;
             
             // Correctly access the dataset property
-            const emotionLabel = button.dataset.emotion-label;
+            const emotionLabel = button.dataset.emotionLabel;
             const secretCard = button.closest('[data-secret-id]');
-            const secretId = secretCard.dataset.secret-id;
+            const secretId = secretCard.dataset.secretId;
             
             if (!secretId) return;
 
